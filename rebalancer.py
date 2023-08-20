@@ -26,7 +26,7 @@ def run():
   on_spot = float(response[0]['free'])
 
   if on_spot < min_spot_amount:
-     add_amount_to_spot = min_spot_amount - on_spot
+     add_amount_to_spot = round(min_spot_amount - on_spot, 8)
      if on_saving >= add_amount_to_spot:
         logging.info(f"Redeem {add_amount_to_spot} {asset} from flexible saving product")
         logging.info(
@@ -36,7 +36,7 @@ def run():
         logging.info(f"Too low savings balance to add asset {asset}. SPOT: {on_spot},  SAVING: {on_saving}")
 
   elif on_spot > min_spot_amount + spread:
-     remove_amount_from_spot = on_spot - min_spot_amount
+     remove_amount_from_spot = round(on_spot - min_spot_amount, 8)
      if remove_amount_from_spot >= min_hop:
         logging.info(f"Purchase {remove_amount_from_spot} {asset} for flexible saving product")
         logging.info(client.savings_purchase_flexible_product(productId=f"{asset}001", amount=remove_amount_from_spot))
