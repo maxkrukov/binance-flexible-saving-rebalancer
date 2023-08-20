@@ -6,6 +6,7 @@ to get more profit. For example USDT APR is above 3-5% on flexible saving.
 ### Howto
 1. Generate api key and api secret
 2. Environment variables
+   
 |Variable|Spec|Value|
 |---|---|---|
 |API_KEY and API_SECRET|Binance api credentials|requred|
