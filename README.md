@@ -23,3 +23,26 @@ vim .env # Change it
 docker build . -t binance-rebalancer:v1
 docker run -it --rm --env-file .env binance-rebalancer:v1
 ``` 
+
+
+##### Log example
+```
+$ docker run -it --rm --env-file .env binance-rebalancer:v1
+2023-08-20 11:47:46.763 UTC INFO root: SPOT: 271.52854,  SAVING: 501.94267855
+2023-08-20 11:48:07.448 UTC INFO root: SPOT: 271.52854,  SAVING: 501.94267855
+2023-08-20 11:48:28.133 UTC INFO root: SPOT: 271.52854,  SAVING: 501.94269656
+2023-08-20 11:48:48.820 UTC INFO root: SPOT: 271.52854,  SAVING: 501.94269656
+...
+2023-08-20 11:56:19.202 UTC INFO root: Purchase 171.52854 USDT for flexible saving product
+2023-08-20 11:56:19.690 UTC INFO root: {'purchaseId': 5162402326}
+2023-08-20 11:56:19.690 UTC INFO root: SPOT: 271.52854,  SAVING: 501.94284055
+2023-08-20 11:56:40.375 UTC INFO root: SPOT: 100.0,  SAVING: 673.47138056
+2023-08-20 11:57:01.162 UTC INFO root: SPOT: 100.0,  SAVING: 673.47138056
+...
+2023-08-20 11:58:13.559 UTC INFO root: Redeem 150.0 USDT from flexible saving product
+2023-08-20 11:58:14.062 UTC INFO root: {}
+2023-08-20 11:58:14.062 UTC INFO root: SPOT: 100.0,  SAVING: 673.47142883
+2023-08-20 11:58:34.757 UTC INFO root: SPOT: 250.0,  SAVING: 523.47142883
+2023-08-20 11:58:55.442 UTC INFO root: SPOT: 250.0,  SAVING: 523.47142883
+
+```
