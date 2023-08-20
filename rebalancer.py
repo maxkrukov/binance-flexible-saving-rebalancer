@@ -10,9 +10,9 @@ from binance.lib.utils import config_logging
 api_key = os.getenv('API_KEY')
 api_secret = os.getenv('API_SECRET')
 asset = os.getenv('ASSET')
-min_spot_amount = os.getenv('MIN_SPOT_AMOUNT')
-min_hop = os.getenv('MIN_HOP')
-spread = os.getenv('SPREAD')
+min_spot_amount = float(os.getenv('MIN_SPOT_AMOUNT'))
+min_hop = float(os.getenv('MIN_HOP'))
+spread = float(os.getenv('SPREAD'))
 
 config_logging(logging, logging.INFO)
 
