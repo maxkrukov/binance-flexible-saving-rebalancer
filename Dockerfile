@@ -7,7 +7,10 @@ ENV MIN_SPOT_AMOUNT=250
 ENV MIN_HOP=10
 ENV SPREAD=50
 
-RUN apk add bash python3 py3-pip && pip3 install binance-connector
+ENV FUTURES_ENABLED="True"
+ENV MIN_FUTURES_AMOUNT=100 
+
+RUN apk add bash python3 py3-pip && pip3 install binance-connector binance-futures-connector
 
 COPY rebalancer.py /rebalancer.py
 
