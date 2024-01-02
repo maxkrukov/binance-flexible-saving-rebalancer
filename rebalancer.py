@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import atexit
 import os
 import time
@@ -29,14 +31,40 @@ futures_enabled = eval(os.getenv('FUTURES_ENABLED'))
 min_futures_amount = float(os.getenv('MIN_FUTURES_AMOUNT'))
 
 # SPOT
-spot_client = Client(apikey, apisecret, base_url = "https://api.binance.com")
+client = Client(api_key, api_secret, base_url = "https://api.binance.com")
 # FUTURES
-um_futures_client = UMFutures(key=apikey, secret=apisecret, base_url = "https://fapi.binance.com")
+um_futures_client = UMFutures(key=api_key, secret=api_secret, base_url = "https://fapi.binance.com")
 
 app = Flask(__name__)
 api = Api(app)
 
+bal = 0.0
+sa = client.savings_account()["positionAmountVos"]
+ua = client.user_asset(recvWindow=5000)
+
 def rebalancer():
+    global sa
+    global ua
+    sa = client.savings_account()["positionAmountVos"]
+    ua = client.user_asset(recvWindow=5000)
+
+    def spot_ua(asset):
+                for i in ua:
+                    if i['asset'] == asset:
+                        return i['free']
+                return 0.0
+
+    def staking_sa(asset):
+                for i in sa:
+                    if i['asset'] == asset:
+                        return i['amount']
+                return 0.0
+
+
+    on_saving = round(float(staking_sa(asset=asset)), 8)
+    on_spot = round(float(spot_ua(asset=asset)), 8)
+
+
     # FUTURES-SPOT
     if futures_enabled:
             try:
@@ -45,15 +73,17 @@ def rebalancer():
                     if i['asset'] == asset:
                         futures_full = round(float(i['balance']), 8)
                         futures_free = round(float(i['availableBalance']), 8)
-                        logger.info(f"Futures balance: free - {futures_free} {asset}, full - {futures_full} {asset}")
-                        if futures_free < min_futures_amount - 1:
+                        # logging.info(f"Futures balance: free - {futures_free} {asset}, full - {futures_full} {asset}")
+                        if futures_free < min_futures_amount and on_saving > min_futures_amount:
                             to_f_wallet = min_futures_amount - futures_free
-                            logging.info(f"Transfer {to_f_wallet} {asset} to Future wallet")
-                            logging.info(spot_client.futures_transfer(asset=asset, amount=to_f_wallet, type=1))
+                            if to_f_wallet > 0.1:
+                                logging.info(f"Transfer {to_f_wallet} {asset} to Future wallet")
+                                logging.info(client.futures_transfer(asset=asset, amount=to_f_wallet, type=1))
                         elif futures_free > min_futures_amount + spread:
                             from_f_wallet = futures_free - min_futures_amount
-                            logging.info(f"Transfer {from_f_wallet} {asset} to Spot wallet")
-                            logging.info(spot_client.futures_transfer(asset=asset, amount=from_f_wallet, type=2))
+                            if from_f_wallet > 0.1:
+                                logging.info(f"Transfer {from_f_wallet} {asset} to Spot wallet")
+                                logging.info(client.futures_transfer(asset=asset, amount=from_f_wallet, type=2))
 
             except ClientError as error:
                 logging.error(
@@ -64,18 +94,12 @@ def rebalancer():
 
     # SPOT-SAVINGS
     try:
-        for i in spot_client.savings_account()["positionAmountVos"]:
-          if i['asset'] == asset:
-            on_saving = float(i['amount'])
-        response = spot_client.user_asset(asset=asset, recvWindow=5000)
-        on_spot = float(response[0]['free'])
-
         if on_spot < min_spot_amount:
            add_amount_to_spot = round(min_spot_amount - on_spot, 8)
            if on_saving >= add_amount_to_spot:
               logging.info(f"Redeem {add_amount_to_spot} {asset} from flexible saving product")
               logging.info(
-                 spot_client.savings_flexible_redeem(productId=f"{asset}001", amount=add_amount_to_spot, type="NORMAL")
+                 client.savings_flexible_redeem(productId=f"{asset}001", amount=add_amount_to_spot, type="NORMAL")
               )
            else:
               logging.info(f"Too low savings balance to add asset {asset}. SPOT: {on_spot},  SAVING: {on_saving}")
@@ -84,7 +108,7 @@ def rebalancer():
            remove_amount_from_spot = round(on_spot - min_spot_amount, 8)
            if remove_amount_from_spot >= min_hop:
               logging.info(f"Purchase {remove_amount_from_spot} {asset} for flexible saving product")
-              logging.info(spot_client.savings_purchase_flexible_product(productId=f"{asset}001", amount=remove_amount_from_spot))
+              logging.info(client.savings_purchase_flexible_product(productId=f"{asset}001", amount=remove_amount_from_spot))
 
     except ClientError as error:
                 logging.error(
@@ -92,29 +116,86 @@ def rebalancer():
                         error.status_code, error.error_code, error.error_message
                     )
                 )
-
     logging.info(f"SPOT: {on_spot}, SAVING: {on_saving}, FUTURES: {futures_free} [{futures_full}]")
+    global bal
+    bal = on_spot + on_saving
 
 # REST API
 
 class Balance(Resource):
     def get(self):
-        return {"message": "balance"}
+        return bal
 
 class Action(Resource):
-    """An addition endpoint."""
-
     add_args = {
-            "pair": fields.String(required=True),
-            "action": fields.String(required=True),
+            "pair": fields.Str(required=True),
+            "action": fields.Str(required=True),
             "amount": fields.Float(required=True)
           }
 
     @use_kwargs(add_args)
     def post(self, pair, action, amount):
-        """An addition endpoint."""
-        return f"{pair} {action} {amount}"
 
+        # global vars
+        #sa = client.savings_account()["positionAmountVos"]
+        #ua = client.user_asset(recvWindow=5000)
+
+        def spot_ua(token):
+                for i in ua:
+                    if i['asset'] == token:
+                        return i['free']
+                return 0.0
+
+        def staking_sa(token):
+                for i in sa:
+                    if i['asset'] == token:
+                        return i['amount']
+                return 0.0
+
+
+        # STAKE
+        if action == "stake":
+
+                    token = pair.replace("/USDT", "")
+
+                    on_saving = round(float(staking_sa(token)), 8)
+                    on_spot = round(float(spot_ua(token)), 8)
+
+                    try:
+                        if on_saving + on_spot > 0:
+                            if on_spot/(on_saving + on_spot) > 0.005:
+                                logging.info(f"Purchase {on_spot} {token} for flexible saving product")
+                                logging.info(client.savings_purchase_flexible_product(productId=f"{token}001", amount=on_spot))
+
+                    except ClientError as error:
+                                logging.error(
+                                    "Found error {}. status: {}, error code: {}, error message: {}".format(
+                                        asset, error.status_code, error.error_code, error.error_message
+                                    )
+                                )
+
+        # REDEEM
+        if action == "redeem":
+
+                token = pair.replace("/USDT", "")
+
+                on_saving = round(float(staking_sa(token)), 8)
+                on_spot = round(float(spot_ua(token)), 8)
+
+                if on_spot >= amount:
+                    return True
+                else:
+                    if on_saving + on_spot < amount:
+                        logging.info(f"Not enough {token} to sell via bot. Need {amount - (on_saving + on_spot)} more")
+                        return False
+                    else:
+                        toadd = amount - on_spot
+                        logging.info(f"Redeem {toadd} {token} to sell via bot")
+                        logging.info(
+                            client.savings_flexible_redeem(productId=f"{token}001", amount=toadd, type="NORMAL")
+                        )
+                        return True
+                return False
 
 # This error handler is necessary for usage with Flask-RESTful
 @parser.error_handler
@@ -127,7 +208,7 @@ def handle_request_parsing_error(err, req, schema, *, error_status_code, error_h
 
 if __name__ == "__main__":
     scheduler = BackgroundScheduler()
-    scheduler.add_job(func=rebalancer, trigger="interval", seconds=20)
+    scheduler.add_job(func=rebalancer, trigger="interval", seconds=30)
     scheduler.start()
 
     # Shut down the scheduler when exiting the app
@@ -135,4 +216,4 @@ if __name__ == "__main__":
 
     api.add_resource(Action, "/action")
     api.add_resource(Balance, "/balance")
-    app.run(port=5001, debug=False)
+    app.run(host="0.0.0.0", port=5001, debug=False)
