@@ -74,3 +74,46 @@ INFO:werkzeug:10.1.231.91 - - [02/Jan/2024 19:58:40] "POST /action HTTP/1.1" 200
 INFO:werkzeug:10.1.231.91 - - [02/Jan/2024 19:58:45] "GET /balance HTTP/1.1" 200 -
 INFO:werkzeug:10.1.231.91 - - [02/Jan/2024 19:58:45] "POST /action HTTP/1.1" 200 -
 ```
+
+##### Freqtrade integration
+- To get free balance
+```
+free_balance = float(requests.get('http://binance-rebalancer:5001/balance').text)
+```
+- To stake
+```
+    def bot_loop_start(self, current_time: datetime, **kwargs) -> None:
+
+        if self.config['runmode'].value in ('live'):
+            for x in  Trade.get_trades_proxy(is_open=True):
+                data = {"action": "stake", "pair": x.pair, "amount": 0.0}
+                json_object = json.dumps(data, indent = 4)
+
+                result = requests.post(
+                            url='http://binance-rebalancer:5001/action',
+                            data=json_object,
+                            headers={"Content-Type": "application/json"},
+                         ).text
+
+```
+- To redeem for selling
+```
+    def confirm_trade_exit(self, pair: str, trade: Trade, order_type: str, amount: float,
+                           rate: float, time_in_force: str, exit_reason: str,
+                           current_time: datetime, **kwargs) -> bool:
+
+        def selling():
+            if self.config['runmode'].value in ('live'):
+                data = {"action": "redeem", "pair": pair, "amount": trade.amount}
+                json_object = json.dumps(data, indent = 4)
+
+                result = requests.post(
+                            url='http://binance-rebalancer:5001/action',
+                            data=json_object,
+                            headers={"Content-Type": "application/json"},
+                         ).text
+                toBool = {'True':True,'False':False,'true':True,'false':False}
+                return toBool[result.rstrip()]
+            else:
+                return True
+```
