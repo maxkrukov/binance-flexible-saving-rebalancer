@@ -18,7 +18,7 @@ Also can redeem/stake spot assets with rest API (trade from flexible savings)
 |FUTURES_ENABLED|Ctrl futures balance|"True" or "False"|
 |MIN_FUTURES_AMOUNT|Minimum free balance for futures account|100|
 
-4. Installation 
+3. Installation 
 ##### Docker
 ```
 cp .env-smaple .env
