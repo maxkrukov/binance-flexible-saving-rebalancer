@@ -91,10 +91,10 @@ free_balance = float(requests.get('http://binance-rebalancer:5001/balance').text
                 json_object = json.dumps(data, indent = 4)
 
                 result = requests.post(
-                            url='http://binance-rebalancer:5001/action',
-                            data=json_object,
-                            headers={"Content-Type": "application/json"},
-                         ).text
+                             url='http://binance-rebalancer:5001/action',
+                             data=json_object,
+                             headers={"Content-Type": "application/json"},
+                         ).status_code
 
 ```
 - To redeem for selling
@@ -105,16 +105,20 @@ free_balance = float(requests.get('http://binance-rebalancer:5001/balance').text
 
         def selling():
             if self.config['runmode'].value in ('live'):
-                data = {"action": "redeem", "pair": pair, "amount": trade.amount}
+                data = {"action": "redeem", "pair": trade.pair, "amount": trade.amount}
                 json_object = json.dumps(data, indent = 4)
 
                 result = requests.post(
                             url='http://binance-rebalancer:5001/action',
                             data=json_object,
                             headers={"Content-Type": "application/json"},
-                         ).text
+                         )
+
+                logger.info(f"Prepare {trade.amount} {trade.pair} for selling. Api responce code: {result.status_code}")
+                self.wallets.update()
+                time.sleep(1)
                 toBool = {'True':True,'False':False,'true':True,'false':False}
-                return toBool[result.rstrip()]
+                return toBool[result.text.rstrip()]
             else:
                 return True
 ```
