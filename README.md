@@ -1,7 +1,8 @@
-## Binance rebalancer
-Tool for switching asset between spot and flexible saving balance.
+## Binance rebalancer with rest API
+Tool for switching asset between spot,futures and flexible saving balance.
 Can be used in pair with trading bot when free spot asset is present
-to get more profit. For example USDT APR is above 3-5% on flexible saving.
+to get more profit. For example, USDT APR is above 3-5% on flexible savings.
+Also can redeem/stake spot assets with rest API (trade from flexible savings) 
 
 ### Howto
 1. Generate api key and api secret
