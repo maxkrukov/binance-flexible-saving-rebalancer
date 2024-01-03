@@ -4,6 +4,7 @@ import atexit
 import os
 import time
 import logging
+import re
 
 from binance.spot import Spot as Client
 from binance.um_futures import UMFutures
@@ -156,7 +157,7 @@ class Action(Resource):
         # STAKE
         if action == "stake":
 
-                    token = pair.replace("/USDT", "")
+                    token = re.sub("/.+", "", pair)
 
                     on_saving = round(float(staking_sa(token)), 8)
                     on_spot = round(float(spot_ua(token)), 8)
@@ -177,8 +178,8 @@ class Action(Resource):
         # REDEEM
         if action == "redeem":
 
-                token = pair.replace("/USDT", "")
-
+                token = re.sub("/.+", "", pair)
+            
                 on_saving = round(float(staking_sa(token)), 8)
                 on_spot = round(float(spot_ua(token)), 8)
 
