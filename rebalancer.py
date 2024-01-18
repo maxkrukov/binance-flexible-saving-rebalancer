@@ -13,6 +13,8 @@ from binance.error import ClientError
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from expiringdict import ExpiringDict
+
 from flask import Flask
 from flask_restful import Api, Resource
 
@@ -48,6 +50,10 @@ def rebalancer():
     global ua
     sa = client.savings_account()["positionAmountVos"]
     ua = client.user_asset(recvWindow=5000)
+
+    global vars_with_expiry
+    vars_with_expiry = ExpiringDict(max_age_seconds=300, max_len=100)
+
 
     def spot_ua(asset):
                 for i in ua:
@@ -159,6 +165,10 @@ class Action(Resource):
 
                     token = re.sub("/.+", "", pair)
 
+                    # lock token
+                    if vars_with_expiry[token] == "locked":
+                        return f"Token: {token} locked"
+
                     on_saving = round(float(staking_sa(token)), 8)
                     on_spot = round(float(spot_ua(token)), 8)
 
@@ -179,9 +189,12 @@ class Action(Resource):
         if action == "redeem":
 
                 token = re.sub("/.+", "", pair)
-            
+
                 on_saving = round(float(staking_sa(token)), 8)
                 on_spot = round(float(spot_ua(token)), 8)
+
+                # Lock token to avoid staking
+                vars_with_expiry[token] = "locked"
 
                 if on_spot >= amount:
                     return True
