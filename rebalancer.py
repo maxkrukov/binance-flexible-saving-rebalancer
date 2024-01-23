@@ -45,15 +45,14 @@ bal = 0.0
 sa = client.savings_account()["positionAmountVos"]
 ua = client.user_asset(recvWindow=5000)
 
+vars_with_expiry = ExpiringDict(max_age_seconds=300, max_len=100)
+vars_with_expiry['testkey'] = "Test"
+
 def rebalancer():
     global sa
     global ua
     sa = client.savings_account()["positionAmountVos"]
     ua = client.user_asset(recvWindow=5000)
-
-    global vars_with_expiry
-    vars_with_expiry = ExpiringDict(max_age_seconds=300, max_len=100)
-
 
     def spot_ua(asset):
                 for i in ua:
@@ -166,7 +165,8 @@ class Action(Resource):
                     token = re.sub("/.+", "", pair)
 
                     # lock token
-                    if vars_with_expiry[token] == "locked":
+                    #logging.info(vars_with_expiry.get("testkey"))
+                    if vars_with_expiry.get(token) == "locked":
                         return f"Token: {token} locked"
 
                     on_saving = round(float(staking_sa(token)), 8)
