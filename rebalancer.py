@@ -42,7 +42,7 @@ app = Flask(__name__)
 api = Api(app)
 
 bal = 0.0
-sa = client.savings_account()["positionAmountVos"]
+sa = client.get_flexible_product_position(current=1, size=100, recvWindow=5000)['rows']
 ua = client.user_asset(recvWindow=5000)
 
 vars_with_expiry = ExpiringDict(max_age_seconds=300, max_len=100)
@@ -51,7 +51,7 @@ vars_with_expiry['testkey'] = "Test"
 def rebalancer():
     global sa
     global ua
-    sa = client.savings_account()["positionAmountVos"]
+    sa = client.get_flexible_product_position(current=1, size=100, recvWindow=5000)['rows']
     ua = client.user_asset(recvWindow=5000)
 
     def spot_ua(asset):
@@ -63,7 +63,7 @@ def rebalancer():
     def staking_sa(asset):
                 for i in sa:
                     if i['asset'] == asset:
-                        return i['amount']
+                        return i['totalAmount']
                 return 0.0
 
 
@@ -105,7 +105,8 @@ def rebalancer():
            if on_saving >= add_amount_to_spot:
               logging.info(f"Redeem {add_amount_to_spot} {asset} from flexible saving product")
               logging.info(
-                 client.savings_flexible_redeem(productId=f"{asset}001", amount=add_amount_to_spot, type="NORMAL")
+                 #client.savings_flexible_redeem(productId=f"{asset}001", amount=add_amount_to_spot, type="NORMAL")
+                 client.redeem_flexible_product(f"{asset}001", amount=add_amount_to_spot, recvWindow=5000)
               )
            else:
               logging.info(f"Too low savings balance to add asset {asset}. SPOT: {on_spot},  SAVING: {on_saving}")
@@ -114,7 +115,8 @@ def rebalancer():
            remove_amount_from_spot = round(on_spot - min_spot_amount, 8)
            if remove_amount_from_spot >= min_hop:
               logging.info(f"Purchase {remove_amount_from_spot} {asset} for flexible saving product")
-              logging.info(client.savings_purchase_flexible_product(productId=f"{asset}001", amount=remove_amount_from_spot))
+              #logging.info(client.savings_purchase_flexible_product(productId=f"{asset}001", amount=remove_amount_from_spot))
+              logging.info(client.subscribe_flexible_product(f"{asset}001", remove_amount_from_spot, recvWindow=5000))
 
     except ClientError as error:
                 logging.error(
@@ -143,7 +145,7 @@ class Action(Resource):
     def post(self, pair, action, amount):
 
         # global vars
-        #sa = client.savings_account()["positionAmountVos"]
+        #sa = client.get_flexible_product_position(current=1, size=100, recvWindow=5000)['rows']
         #ua = client.user_asset(recvWindow=5000)
 
         def spot_ua(token):
@@ -155,7 +157,7 @@ class Action(Resource):
         def staking_sa(token):
                 for i in sa:
                     if i['asset'] == token:
-                        return i['amount']
+                        return i['totalAmount']
                 return 0.0
 
 
@@ -176,7 +178,8 @@ class Action(Resource):
                         if on_saving + on_spot > 0:
                             if on_spot/(on_saving + on_spot) > 0.005:
                                 logging.info(f"Purchase {on_spot} {token} for flexible saving product")
-                                logging.info(client.savings_purchase_flexible_product(productId=f"{token}001", amount=on_spot))
+                                #logging.info(client.savings_purchase_flexible_product(productId=f"{token}001", amount=on_spot))
+                                logging.info(client.subscribe_flexible_product(f"{token}001", on_spot, recvWindow=5000))
 
                     except ClientError as error:
                                 logging.error(
@@ -206,7 +209,8 @@ class Action(Resource):
                         toadd = amount - on_spot
                         logging.info(f"Redeem {toadd} {token} to sell via bot")
                         logging.info(
-                            client.savings_flexible_redeem(productId=f"{token}001", amount=toadd, type="NORMAL")
+                            #client.savings_flexible_redeem(productId=f"{token}001", amount=toadd, type="NORMAL")
+                            client.redeem_flexible_product(f"{token}001", amount=toadd, recvWindow=5000)
                         )
                         return True
                 return False
