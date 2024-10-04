@@ -30,7 +30,7 @@ export API_SECRET="your_api_secret"
 Run the Flask API locally:
 
 ```bash
-python3 app.py
+python3 rebalancer.py
 ```
 
 By default, the API will run on `http://0.0.0.0:5001`.
