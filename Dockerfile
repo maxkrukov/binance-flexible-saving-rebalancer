@@ -1,12 +1,24 @@
 FROM alpine:latest
 
-ENV API_KEY=""
-ENV API_SECRET=""
+# Set any ENV values you need (for example):
+#ENV API_KEY=""
+#ENV API_SECRET=""
 
-COPY requirements.txt requirements.txt
+# Install system dependencies
+RUN apk add --no-cache bash python3 py3-pip
 
-RUN apk add bash python3 py3-pip && pip3 install -r requirements.txt
+# Create and activate a virtual environment
+RUN python3 -m venv /venv
+ENV PATH="/venv/bin:$PATH"
 
-COPY rebalancer.py /rebalancer.py
+# Copy requirements and install inside the venv
+COPY requirements.txt /app/requirements.txt
+WORKDIR /app
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["/usr/bin/python3", "/rebalancer.py"]
+# Copy your main script
+COPY rebalancer.py /app/rebalancer.py
+
+# Use the venv's Python as the entry point
+ENTRYPOINT [ "python3", "/app/rebalancer.py" ]
