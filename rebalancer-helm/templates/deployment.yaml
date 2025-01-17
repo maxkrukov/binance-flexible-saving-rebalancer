@@ -42,19 +42,6 @@ spec:
               value: {{ .Values.env.API_KEY | quote }}
             - name: API_SECRET
               value: {{ .Values.env.API_SECRET | quote }}
-            - name: ASSET
-              value: {{ .Values.env.ASSET | quote }}
-            - name: MIN_SPOT_AMOUNT
-              value: {{ .Values.env.MIN_SPOT_AMOUNT | quote }}
-            - name: MIN_HOP
-              value: {{ .Values.env.MIN_HOP | quote }}
-            - name: SPREAD
-              value: {{ .Values.env.SPREAD | quote }}
-            - name: FUTURES_ENABLED
-              value: {{ .Values.env.FUTURES_ENABLED | quote }}
-            - name: MIN_FUTURES_AMOUNT
-              value: {{ .Values.env.MIN_FUTURES_AMOUNT | quote }}
-
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}

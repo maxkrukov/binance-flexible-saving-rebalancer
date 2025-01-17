@@ -92,7 +92,7 @@ class Balance(Resource):
             futures_bal = futures_balance(asset)
 
             total_balance = spot_balance + savings_balance
-            
+
             return {
                 "spot_balance": spot_balance,
                 "savings_balance": savings_balance,
@@ -115,35 +115,42 @@ class Action(Resource):
 
     @use_kwargs(add_args)
     def post(self, asset, action, amount):
-        """Performs stake or redeem actions based on user request."""
+        """Performs stake or redeem actions for Spot/Savings or futures transfers."""
         try:
+            # --- STAKE to Flexible Savings (Spot) ---
             if action == "stake":
                 if amount <= 0:
                     return {"message": "Invalid amount. Staking amount must be greater than zero."}, 400
 
                 on_spot = spot_ua(asset)
-
                 if on_spot == 0:
-                    return {"message": f"No {asset} available in spot account"}, 400
+                    return {"message": f"No {asset} available in Spot account."}, 400
+
+                # Stake the min of (requested, available)
+                amount_to_stake = min(amount, on_spot)
+                logging.info(f"Purchasing {amount_to_stake} {asset} for flexible savings.")
 
                 try:
-                    amount = min(amount, on_spot)
-                    logging.info(f"Purchasing {amount} {asset} for flexible savings")
-                    spot_client.subscribe_flexible_product(f"{asset}001", amount, recvWindow=RECV_WINDOW)
-                    return {"message": f"Staked {amount} {asset} to savings"}
+                    spot_client.subscribe_flexible_product(
+                        productId=f"{asset}001",
+                        amount=amount_to_stake,
+                        recvWindow=RECV_WINDOW
+                    )
+                    return {"message": f"Staked {amount_to_stake} {asset} to savings."}
                 except ClientError as error:
                     logging.error(f"Error staking {asset}: {error}")
                     return {"message": f"Failed to stake {asset}"}, 500
 
+            # --- REDEEM from Flexible Savings (Spot) ---
             elif action == "redeem":
                 on_saving = staking_sa(asset)
                 on_spot = spot_ua(asset)
 
+                # If spot balance alone is enough, do nothing for savings
                 if on_spot >= amount:
-                    return {"message": f"Enough {asset} available in spot to proceed with redemption"}, 200
+                    return {"message": f"Enough {asset} available in Spot to proceed with redemption."}, 200
 
                 to_redeem = max(0, amount - on_spot)
-
                 if to_redeem <= 0:
                     return {"message": "Nothing to redeem from savings."}, 400
 
@@ -151,18 +158,78 @@ class Action(Resource):
                     to_redeem = on_saving
 
                 try:
-                    logging.info(f"Redeeming {to_redeem} {asset} from savings")
-                    spot_client.redeem_flexible_product(f"{asset}001", amount=to_redeem, recvWindow=RECV_WINDOW)
-                    return {"message": f"Redeemed {to_redeem} {asset} from savings"}
+                    logging.info(f"Redeeming {to_redeem} {asset} from savings.")
+                    spot_client.redeem_flexible_product(
+                        productId=f"{asset}001",
+                        amount=to_redeem,
+                        recvWindow=RECV_WINDOW
+                    )
+                    return {"message": f"Redeemed {to_redeem} {asset} from savings."}
                 except ClientError as error:
                     logging.error(f"Error redeeming {asset}: {error}")
                     return {"message": f"Failed to redeem {asset}"}, 500
 
+            # --- SPOT (transfer) TO Futures ---
+            elif action == "futures":
+                if amount <= 0:
+                    return {"message": "Invalid amount. Transfer amount must be greater than zero."}, 400
+
+                on_spot = spot_ua(asset)
+                if on_spot == 0:
+                    return {"message": f"No {asset} available in Spot account."}, 400
+
+                # Transfer only as much as we have in Spot
+                to_f_wallet = min(amount, on_spot)
+                logging.info(f"Transferring {to_f_wallet} {asset} from Spot to Futures wallet.")
+
+                try:
+                    # type=1 => Spot to Futures
+                    response = spot_client.futures_transfer(
+                        asset=asset,
+                        amount=to_f_wallet,
+                        type=1  # 1 = Spot -> Futures
+                    )
+                    logging.info(f"futures_transfer response: {response}")
+                    return {"message": f"Transferred {to_f_wallet} {asset} from Spot to Futures."}
+                except ClientError as error:
+                    logging.error(f"Error transferring to Futures: {error}")
+                    return {"message": f"Failed to transfer {asset} to Futures."}, 500
+
+            # --- REDEEM (transfer) FROM Futures ---
+            elif action == "redeem_futures":
+                if amount <= 0:
+                    return {"message": "Invalid amount. Transfer amount must be greater than zero."}, 400
+
+                fut_bal = futures_balance(asset)  # returns {"futures_full": ..., "futures_free": ...}
+                fut_free = fut_bal["futures_free"]
+
+                if fut_free == 0:
+                    return {"message": f"No free {asset} balance in Futures."}, 400
+
+                # Transfer only as much as we have free in Futures
+                from_f_wallet = min(amount, fut_free)
+                logging.info(f"Transferring {from_f_wallet} {asset} from Futures to Spot wallet.")
+
+                try:
+                    # type=2 => Futures to Spot
+                    response = spot_client.futures_transfer(
+                        asset=asset,
+                        amount=from_f_wallet,
+                        type=2  # 2 = Futures -> Spot
+                    )
+                    logging.info(f"futures_transfer response: {response}")
+                    return {"message": f"Transferred {from_f_wallet} {asset} from Futures to Spot."}
+                except ClientError as error:
+                    logging.error(f"Error transferring from Futures: {error}")
+                    return {"message": f"Failed to transfer {asset} from Futures."}, 500
+
+            # If action doesn't match any known pattern
             return {"message": "Invalid action"}, 400
 
         except Exception as e:
             logging.error(f"Unexpected error: {e}")
             return {"message": "An unexpected error occurred"}, 500
+
 
 # Error handler for Flask-RESTful to handle webargs parsing errors
 @parser.error_handler
